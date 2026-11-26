@@ -263,6 +263,14 @@ tma_unavailable: Tuple[bool, str] = (
 )
 
 
+# Некоторые GPU-операции и матричные вычисления эффективнее работают с 
+# contiguous-тензорами. Это позволяет избежать лишнего копирования, 
+# когда данные уже правильно расположены в памяти.
+
+# Главная идея: не копировать тензор без необходимости, но 
+# гарантировать подходящий memory layout для дальнейших операций.
+
+
 def switch_to_contiguous_if_needed(x: torch.Tensor) -> torch.Tensor:
     if torch.jit.is_scripting():
         if x.stride(-1) == 1:

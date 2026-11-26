@@ -37,6 +37,8 @@ try:
     )
 except ImportError:
 
+    ## Lazy failure 
+    ## Будет падать не при импорте , а при попытке вызвать функцию. 
     def aot_triton_kernel_wrapper_cached_hstu_mha(
         *args: object,
         **kwargs: object,
@@ -55,9 +57,12 @@ except ImportError:
 
 
 try:
+    ## не нашел код для triton_cc_hstu_attention в открытых источниках и как оно отличается  от triton_hstu_mha . По ходу у Меты есть что прятать ( RnD и тд)     
+    ## Не понятно что этот сс означает. 
     from hammer.ops.triton.cc.hstu_attention.triton_cc_hstu_attention import (
         triton_cc_hstu_mha,
     )
+    ## Кажется это TLX (Triton Low-level Extensions) наработка от Меты. У них своя оптимизация и ускорение ГПУ. Не хотят делиться. 
     from hammer.v2.ops.triton.template.tlx_bw_hstu_attention import (
         tlx_bw_hstu_mha_wrapper,
     )
@@ -66,8 +71,24 @@ except ImportError:
     from generative_recommenders.ops.triton.triton_hstu_attention import (
         triton_hstu_mha as triton_cc_hstu_mha,
     )
+
+# Трассировка (tracing) — это способ превратить обычный Python-код модели в
+# граф вычислений: запись того, какие операции выполняются и в каком порядке.
+
+# Передает граф рассчетов в компилятор,  а компилятор или набор преобразований (passes): 
+# они читают граф целиком, видят связи между операциями и переписывают его, 
+# например склеивают несколько операций в одну или убирают лишние копии. 
+
+# Фреймворк / компилятор графа - видит весь граф модели, склеивает операции (fusion), убирает лишние копии, выбирает порядок. torch.compile (Inductor), XLA (JAX, TensorFlow)
+
+# То есть картина такая: автоматика закрывает типовые места,
+# а на самых горячих участках инженеры пишут ядра вручную и подключают их в тот же граф.
 from torch.fx._symbolic_trace import is_fx_tracing
 
+
+# сделать функцию непрозрачной для FX-трассировки
+# Почему: трассировщик умеет записывать только то, что можно выполнить на «ненастоящих» данных. Ядро Triton так выполнить нельзя.
+# is_fx_tracing работает только на прокси данных потому что трассировщик FX не знает не умеет работать/записывать чтение размеров и указателей настоящей памяти, создание TMA-дескрипторов и т.д
 torch.fx.wrap("triton_hstu_mha")
 torch.fx.wrap("triton_cached_hstu_mha")
 
